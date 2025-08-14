@@ -2,54 +2,57 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   labels:
-    service: redis
-  name: redis
+    service: mysql
+  name: mysql
 spec:
   replicas: 1
   selector:
     matchLabels:
-      service: redis
-  serviceName: redis
+      service: mysql
+  serviceName: mysql
   template:
     metadata:
       labels:
-        service: redis
+        service: mysql
     spec:
       {{ if .Values.psp.enabled }}
       serviceAccountName: robot-shop
       {{ end }}
       containers:
-      - name: redis
-        image: redis:4.0.6
+      - name: mysql
+        image: {{ .Values.image.repo }}/rs-mysql-db:{{ .Values.image.version }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN"]
         ports:
-        - containerPort: 6379
+          - containerPort: 3306
         volumeMounts:
-          - name: data
-            mountPath: /mnt/redis
+          - name: mysql-data
+            mountPath: /var/lib/mysql
         resources:
           limits:
             cpu: 200m
-            memory: 100Mi
+            memory: 1024Mi
           requests:
             cpu: 100m
-            memory: 50Mi
+            memory: 700Mi
       restartPolicy: Always
-      {{- with .Values.redis.affinity }}
+      {{- with .Values.mysql.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.redis.nodeSelector }}
+      {{- with .Values.mysql.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.redis.tolerations }}
+      {{- with .Values.mysql.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
   volumeClaimTemplates:
     - metadata:
-        name: data
+        name: mysql-data
       spec:
         accessModes: [ "ReadWriteOnce" ]
         {{ if not .Values.openshift }}
@@ -58,5 +61,4 @@ spec:
         {{ end }}
         resources:
           requests:
-            storage: 1Gi
-
+            storage: 5Gi
